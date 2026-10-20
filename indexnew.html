@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>StepSync</title>
+<meta name="theme-color" content="#0a0f1f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<style>
+/* Layout: left rail (desktop) / bottom tab bar (phone). Today = one dial hero + live stats, then goals, timeline. Dark navy first, lime for the dial only. */
+:root{
+  --bg:#0a0f1f; --surface:#121a31; --surface2:#19233f; --line:#25314f;
+  --fg:#eef2ff; --muted:#97a3c6; --accent:#c8f43a; --accent-ink:#c8f43a; --on-accent:#0a0f1f;
+  --blue:#5b86ff; --violet:#a58bff; --warn:#ffb84d; --bad:#ff7384; --good:#59e0a0;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif; --body:'Instrument Sans','Segoe UI',system-ui,sans-serif;
+  --nav-h:64px; color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#f2f4fb; --surface:#ffffff; --surface2:#eaeefb; --line:#d9dff0;
+  --fg:#0d1431; --muted:#576088; --accent:#b9e92a; --accent-ink:#4a6b00; --on-accent:#0d1431;
+  --blue:#2f5fe8; --violet:#6c4fe0; --warn:#a85f00; --bad:#c42a43; --good:#0a7d4b;
+  --shadow:0 8px 24px rgba(20,30,70,.10); color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f2f4fb; --surface:#ffffff; --surface2:#eaeefb; --line:#d9dff0;
+  --fg:#0d1431; --muted:#576088; --accent:#b9e92a; --accent-ink:#4a6b00; --on-accent:#0d1431;
+  --blue:#2f5fe8; --violet:#6c4fe0; --warn:#a85f00; --bad:#c42a43; --good:#0a7d4b;
+  --shadow:0 8px 24px rgba(20,30,70,.10); color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:auto}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);margin:0}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums}
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh;padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+.rail{position:sticky;top:0;height:100vh;padding:24px 16px;display:flex;flex-direction:column;gap:28px;border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font:700 22px var(--display);letter-spacing:-.02em;padding:0 8px}
+.brand i{width:28px;height:28px;border-radius:50%;border:5px solid var(--accent);border-right-color:transparent;transform:rotate(-30deg);display:block}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav button{display:flex;align-items:center;gap:12px;padding:10px 12px;border:0;background:none;border-radius:12px;color:var(--muted);cursor:pointer;text-align:left;font-weight:500}
+.nav button:hover{background:var(--surface);color:var(--fg)}
+.nav button[aria-current="page"]{background:var(--surface2);color:var(--fg)}
+.nav svg{width:20px;height:20px;flex:none}
+.rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px;color:var(--muted);font-size:13px}
+main{padding:28px max(20px,env(safe-area-inset-right,0px)) 48px max(20px,env(safe-area-inset-left,0px));max-width:1120px;width:100%;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.top h1{font:700 clamp(26px,4vw,38px)/1.1 var(--display);letter-spacing:-.025em;text-wrap:balance}
+.top p{color:var(--muted);margin-top:4px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);cursor:pointer;font-weight:600;min-height:42px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.danger{color:var(--bad);border-color:currentColor;background:none}
+.btn.small{padding:6px 12px;min-height:34px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hero{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:stretch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;min-width:0}
+.card.flat{background:none}
+.card h2{font:650 17px var(--display);letter-spacing:-.01em;margin-bottom:4px}
+.sub{color:var(--muted);font-size:13px}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.banner{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:14px;border:1px dashed var(--muted);background:var(--surface);margin-bottom:16px;font-size:14px}
+.banner b{color:var(--fg)}
+.banner .btn{margin-left:auto;flex:none}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--surface2);white-space:nowrap}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.src-motion{background:var(--accent)} .src-import{background:var(--blue)} .src-manual{background:var(--violet)}
+.src-preview{background:repeating-linear-gradient(135deg,var(--muted) 0 2px,transparent 2px 5px);border:1px solid var(--muted)}
+.dial{position:relative;display:grid;place-items:center;padding:8px 0}
+.dial svg{width:min(100%,330px);height:auto;display:block}
+.dial .center{position:absolute;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px}
+.big{font:700 clamp(44px,9vw,64px)/1 var(--display);letter-spacing:-.04em}
+.track{stroke:var(--surface2)} .arc{stroke:var(--accent);transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)}
+.stat{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-radius:16px;background:var(--surface2)}
+.stat .v{font:650 26px/1.1 var(--display);letter-spacing:-.02em}
+.stat .v small{font:500 13px var(--body);color:var(--muted);margin-left:3px}
+.stat .l{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.srcbar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--surface2);margin:12px 0 8px}
+.srcbar span{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.meter{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:8px}
+.meter i{display:block;height:100%;background:var(--blue);border-radius:99px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.meter.run i{background:var(--violet)} .meter.ok i{background:var(--accent)}
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:56px 14px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.tl li:first-child{border-top:0}
+.tl time{color:var(--muted);font-size:13px}
+.note{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.note:first-child{border-top:0}
+.note svg{width:18px;height:18px;flex:none;margin-top:2px}
+form.grid label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:500}
+input[type=number],input[type=text],input[type=date],input[type=time],select{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-height:42px;width:100%;color:var(--fg)}
+input:disabled{opacity:.5}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+.ok{color:var(--good);font-size:13px}
+.seg{display:inline-flex;background:var(--surface2);border-radius:12px;padding:3px;gap:2px;max-width:100%;overflow-x:auto}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:9px;cursor:pointer;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart text{fill:var(--muted);font:11px var(--body)}
+.chart .gridl{stroke:var(--line);stroke-width:1}
+.chart .goal{stroke:var(--accent-ink);stroke-dasharray:5 4;stroke-width:1.5}
+.chart .bar{transform-box:fill-box;transform-origin:bottom;animation:grow .7s cubic-bezier(.2,.8,.2,1) both}
+.chart .hit{fill:transparent;cursor:pointer}
+.chart .hit:hover{fill:var(--fg);fill-opacity:.06}
+.c-motion{fill:var(--accent)} .c-import{fill:var(--blue)} .c-manual{fill:var(--violet)} .c-goal{fill:var(--good)}
+.c-preview{fill:url(#hatch)}
+@keyframes grow{from{transform:scaleY(.02)}to{transform:scaleY(1)}}
+.readout{min-height:44px;margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);font-size:13.5px}
+.empty{display:grid;place-items:center;text-align:center;gap:8px;padding:36px 16px;color:var(--muted);border:1px dashed var(--line);border-radius:16px}
+.empty b{color:var(--fg);font:650 17px var(--display)}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal .dow{font-size:12px;color:var(--muted);text-align:center;padding-bottom:4px}
+.cal button{aspect-ratio:1;border-radius:12px;border:1px solid transparent;background:var(--surface2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;min-width:0;padding:0;position:relative}
+.cal button.blank{visibility:hidden}
+.cal button small{font-size:10px;color:var(--muted)}
+.cal .l1{background:color-mix(in srgb,var(--accent) 22%,var(--surface2))}
+.cal .l2{background:color-mix(in srgb,var(--accent) 45%,var(--surface2))}
+.cal .l3{background:color-mix(in srgb,var(--accent) 70%,var(--surface2))}
+.cal .l4{background:var(--accent);color:var(--on-accent)} .cal .l4 small{color:var(--on-accent)}
+.cal .pv::after{content:"";position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:2px;border:1px solid var(--muted);background:var(--surface)}
+.cal button.sel{border-color:var(--fg)} .cal button.today{box-shadow:inset 0 0 0 2px var(--blue)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.badge{display:flex;gap:12px;padding:14px;border-radius:16px;background:var(--surface2);align-items:flex-start;min-width:0}
+.badge .ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--surface);color:var(--muted)}
+.badge.on .ico{background:var(--accent);color:var(--on-accent)}
+.badge:not(.on){opacity:.82}
+.badge svg{width:22px;height:22px}
+.badge b{display:block}
+.recs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl td,.tbl th{padding:10px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.tbl th{color:var(--muted);font-weight:500;font-size:12.5px;border-top:0}
+.scroll-x{overflow-x:auto}
+.toast{position:fixed;left:50%;transform:translate(-50%,20px);bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:12px 18px;border-radius:14px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:calc(100vw - 32px);font-weight:600}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:70;width:100%;height:100%}
+.onb{border-color:var(--accent-ink)}
+.steps-dots{display:flex;gap:6px;margin:10px 0 14px}
+.steps-dots i{height:4px;flex:1;border-radius:4px;background:var(--surface2)}
+.steps-dots i.on{background:var(--accent)}
+.skel{animation:pulse 1.2s infinite alternate;background:var(--surface2);border-radius:10px;height:16px}
+@keyframes pulse{to{opacity:.4}}
+
+.sdot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none;display:inline-block}
+.sdot.tracking{background:var(--accent);animation:ping 1.8s infinite}
+.sdot.starting{background:var(--warn)} .sdot.paused{background:var(--blue)}
+@keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 70%,transparent)}70%,100%{box-shadow:0 0 0 9px transparent}}
+.btn.big{min-height:54px;font-size:17px;flex:1 1 180px}
+details.help summary{cursor:pointer;font-weight:600;margin-top:14px}
+.helplist{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:13.5px;display:grid;gap:6px}
+.helplist b{color:var(--fg)}
+.alert{padding:12px 14px;border-radius:14px;border:1px solid var(--bad);margin-top:14px;font-size:14px}
+.alert b{color:var(--bad)}
+.tabbar{display:none}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{display:none}
+  main{padding-bottom:calc(var(--nav-h) + 40px + env(safe-area-inset-bottom,0px))}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);z-index:50;padding:0 max(8px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(8px,env(safe-area-inset-left,0px))}
+  .tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:var(--nav-h);border:0;background:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
+  .tabbar button[aria-current="page"]{color:var(--fg)}
+  .tabbar svg{width:22px;height:22px}
+  .hero,.g2,.g3{grid-template-columns:minmax(0,1fr)}
+  .tl li{grid-template-columns:48px 12px minmax(0,1fr)} .tl li .pill{grid-column:3}
+}
+@media (max-width:420px){.stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .stat .v{font-size:22px} .banner{flex-wrap:wrap}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<style>[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px)}body{margin:0}</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" style="fill:var(--surface2)"/><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--muted)" stroke-width="2.5"/></pattern>
+</defs></svg>
+<canvas id="confetti" aria-hidden="true"></canvas>
+<div class="app">
+  <aside class="rail"><div class="brand"><i></i>StepSync</div><nav class="nav" id="nav" aria-label="Main"></nav>
+    <div class="rail-foot"><button class="btn small" id="themeBtn" type="button">Theme</button><span>Progress stays in this browser only.</span></div></aside>
+  <main id="main" tabindex="-1"><div id="view"></div></main>
+</div>
+<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+var KEY='stepsync.v1';
+var $=function(s){return document.querySelector(s)};
+var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var pad=function(n){return String(n).padStart(2,'0')};
+var ymd=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+var parse=function(s){var p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])};
+var addDays=function(s,n){var d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
+var today=function(){return ymd(new Date())};
+var fmt=function(n,d){return Number(n).toLocaleString(undefined,{maximumFractionDigits:d||0,minimumFractionDigits:d||0})};
+var mondayOf=function(s){var d=parse(s);var k=(d.getDay()+6)%7;d.setDate(d.getDate()-k);return ymd(d)};
+var SRC=['motion'];
+function fmtDur(ms){var s=Math.max(0,Math.round(ms/1000)),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+':'+pad(m)+':'+pad(s%60):m+':'+pad(s%60)}
+
+/* ---------- state + storage ---------- */
+var storageOk=true,interruptedNote=false;
+var DEFAULTS=function(){return{profile:{name:'',height:170,weight:70,stride:null},goals:{steps:8000,walk:45,run:10,activeDays:5},prefs:{theme:'system',celebrate:true,encourage:true},sessions:[],onboard:{done:false,step:0}}};
+var S=DEFAULTS();
+try{
+  var raw=localStorage.getItem(KEY);
+  if(raw){
+    var p=JSON.parse(raw),d0=DEFAULTS();
+    var sess=(Array.isArray(p.sessions)?p.sessions:[]).filter(function(s){return s&&typeof s.id==='string'&&s.b&&typeof s.b==='object'});
+    sess.forEach(function(s){
+      var n=0;Object.keys(s.b).forEach(function(k){n+=(s.b[k]&&s.b[k][0])||0});s.steps=n;
+      if(s.status==='active'||s.status==='paused'){s.status='interrupted';interruptedNote=true}
+    });
+    S={profile:Object.assign(d0.profile,p.profile),goals:Object.assign(d0.goals,p.goals),prefs:Object.assign(d0.prefs,p.prefs),sessions:sess.filter(function(s){return s.steps>0}),onboard:Object.assign(d0.onboard,p.onboard)};
+    /* older versions kept manual, imported and sample entries in "records"; they are not carried over */
+  }
+}catch(e){storageOk=false}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){storageOk=false}}
+
+/* ---------- step detector (also unit-tested on its own) ---------- */
+/*DETECTOR-START*/
+/* Acceleration-peak step detector.
+   Input: raw accelerometer samples (m/s^2, gravity included) with a ms timestamp.
+   1. Magnitude removes dependence on phone orientation.
+   2. A fast low-pass filter removes sensor noise; a slow average estimates gravity; their difference is the movement signal.
+   3. Local maxima above an adaptive threshold (45% of the recent average peak, never below 0.8 m/s^2) are candidate steps.
+   4. A minimum gap of 280 ms rejects double bumps inside one stride; peaks above 30 m/s^2 (drops, hard shakes) are ignored.
+   5. Candidates only count once 4 in a row arrive 280-1500 ms apart with similar spacing, longest within 1.45x of shortest (walking rhythm). Those 4 are then
+      credited together, and later steps count one by one, each spaced like the recent steps (0.55x to 1.7x). A gap over 1.5 s, or a sensor gap over 0.5 s, resets the chain. */
+function createDetector(){
+  var MIN_DT=280,MAX_DT=1500,CONFIRM=4,MAX_PEAK=30,MIN_THR=0.8;
+  var s;
+  function reset(){s={t:0,init:false,lp:0,g:0,p1:0,p2:0,pt1:0,chain:[],confirmed:false,avgDt:600,avgPeak:2.2}}
+  reset();
+  function onPeak(t,pk){
+    var last=s.chain.length?s.chain[s.chain.length-1]:null;
+    if(last!==null){
+      var d=t-last;
+      if(d<MIN_DT)return [];
+      if(d>MAX_DT){s.chain=[];s.confirmed=false}
+    }
+    if(s.confirmed&&last!==null){
+      var gap=t-last;
+      if(gap>s.avgDt*1.7||gap<s.avgDt*0.55){s.confirmed=false;s.chain=[t];return []}
+      s.avgDt=0.8*s.avgDt+0.2*gap;
+    }
+    s.chain.push(t);
+    s.avgPeak=0.8*s.avgPeak+0.2*Math.min(pk,8);
+    if(s.confirmed){s.chain=[t];return [t]}
+    if(s.chain.length>=CONFIRM){
+      var c=s.chain.slice(-CONFIRM),mn=1e9,mx=0;
+      for(var i=1;i<c.length;i++){var dd=c[i]-c[i-1];mn=Math.min(mn,dd);mx=Math.max(mx,dd)}
+      if(mx/mn<=1.45){s.confirmed=true;s.avgDt=(c[c.length-1]-c[0])/(CONFIRM-1);var out=c.slice();s.chain=[c[c.length-1]];return out}
+      s.chain.shift();
+    }
+    return [];
+  }
+  function push(ax,ay,az,t){
+    var mag=Math.sqrt(ax*ax+ay*ay+az*az);
+    if(!isFinite(mag))return [];
+    if(!s.init){s.init=true;s.t=t;s.lp=mag;s.g=mag;return []}
+    var dt=t-s.t;
+    if(dt<=0)return [];
+    if(dt>500){s.t=t;s.lp=mag;s.g=mag;s.p1=s.p2=0;s.chain=[];s.confirmed=false;return []}
+    s.t=t;
+    s.lp+=dt/(30+dt)*(mag-s.lp);
+    s.g+=dt/(800+dt)*(mag-s.g);
+    var hp=s.lp-s.g,out=[];
+    if(s.p1>s.p2&&s.p1>=hp){
+      var thr=Math.max(MIN_THR,0.45*s.avgPeak);
+      if(s.p1>=thr&&s.p1<MAX_PEAK)out=onPeak(s.pt1,s.p1);
+    }
+    s.p2=s.p1;s.p1=hp;s.pt1=t;
+    return out;
+  }
+  return {push:push,reset:reset,confirmed:function(){return s.confirmed}};
+}
+/*DETECTOR-END*/
+
+/* ---------- derived data ---------- */
+function strideCm(){return S.profile.stride||S.profile.height*0.415}
+function enrich(r){
+  var km=r.steps*strideCm()/100000,share=r.run/Math.max(1e-6,r.walk+r.run);
+  return {steps:r.steps,km:km,kcal:S.profile.weight*km*(0.6+0.4*share)};
+}
+function allRecs(){
+  var out=[];
+  S.sessions.forEach(function(s){Object.keys(s.b).forEach(function(k){var q=k.split('|'),b=s.b[k];out.push({id:s.id+'|'+k,sid:s.id,date:q[0],hour:+q[1],min:0,steps:b[0],walk:b[1]/60000,run:b[2]/60000,source:'motion',ts:s.start})})});
+  return out;
+}
+function todayTotal(){var t=today(),n=0;S.sessions.forEach(function(s){Object.keys(s.b).forEach(function(k){if(k.slice(0,10)===t)n+=s.b[k][0]})});return n}
+function sessStats(s){
+  var o={steps:s.steps,km:0,kcal:0,activeMs:s.activeMs||0,elapsed:s.elapsedMs||0};
+  Object.keys(s.b).forEach(function(k){var b=s.b[k],e=enrich({steps:b[0],walk:b[1]/60000,run:b[2]/60000});o.km+=e.km;o.kcal+=e.kcal});
+  return o;
+}
+function buildDays(){
+  var m={};
+  allRecs().forEach(function(r){
+    var d=m[r.date]||(m[r.date]={date:r.date,steps:0,walk:0,run:0,km:0,kcal:0,recs:[]}),e=enrich(r);
+    d.steps+=r.steps;d.walk+=r.walk;d.run+=r.run;d.km+=e.km;d.kcal+=e.kcal;d.recs.push(r);
+  });
+  return m;
+}
+function streaks(days){
+  var g=S.goals.steps,cur=0,d=today();
+  if(!(days[d]&&days[d].steps>=g))d=addDays(d,-1);
+  while(days[d]&&days[d].steps>=g){cur++;d=addDays(d,-1)}
+  var best=0,run=0,prev=null;
+  Object.keys(days).sort().forEach(function(k){
+    if(days[k].steps>=g){run=(prev&&addDays(prev,1)===k)?run+1:1;best=Math.max(best,run);prev=k}else{run=0;prev=null}
+  });
+  return {cur:cur,best:best};
+}
+function sumRange(days,from,to){
+  var o={steps:0,km:0,kcal:0,walk:0,run:0,met:0,active:0,best:0};
+  for(var d=from;d<=to;d=addDays(d,1)){var x=days[d];if(!x)continue;o.steps+=x.steps;o.km+=x.km;o.kcal+=x.kcal;o.walk+=x.walk;o.run+=x.run;o.active++;if(x.steps>=S.goals.steps)o.met++;o.best=Math.max(o.best,x.steps)}
+  return o;
+}
+function ctx(){
+  var days=buildDays(),t=today(),td=days[t]||{date:t,steps:0,walk:0,run:0,km:0,kcal:0,recs:[]};
+  var st=streaks(days),keys=Object.keys(days);
+  var last30=sumRange(days,addDays(t,-29),t),wk=sumRange(days,mondayOf(t),t),lastWk=sumRange(days,addDays(mondayOf(t),-7),addDays(mondayOf(t),-1));
+  var ms=t.slice(0,8)+'01',mo=sumRange(days,ms,t),dim=new Date(parse(t).getFullYear(),parse(t).getMonth()+1,0).getDate();
+  var bestWeek=0,wkTot={};keys.forEach(function(k){var w=mondayOf(k);wkTot[w]=(wkTot[w]||0)+days[k].steps;bestWeek=Math.max(bestWeek,wkTot[w])});
+  var bestDay=null,farDay=null,runDay=null,total={steps:0,km:0},early=0;
+  keys.forEach(function(k){var x=days[k];total.steps+=x.steps;total.km+=x.km;
+    if(!bestDay||x.steps>bestDay.steps)bestDay=x;if(!farDay||x.km>farDay.km)farDay=x;if(!runDay||x.run>runDay.run)runDay=x;
+    x.recs.forEach(function(r){if(r.hour<7&&r.steps>=500)early++})});
+  return {days:days,t:t,td:td,st:st,avg:last30.active?last30.steps/last30.active:0,wk:wk,lastWk:lastWk,mo:mo,dim:dim,bestWeek:bestWeek,bestDay:bestDay,farDay:farDay,runDay:runDay,total:total,early:early,keys:keys};
+}
+
+/* ---------- icons ---------- */
+var IC={
+ today:'<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="38 12" stroke-linecap="round" transform="rotate(-70 12 12)"/>',
+ trends:'<path d="M4 19V9m6 10V4m6 15v-7m4 7H3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+ history:'<rect x="3.5" y="5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4m8-4v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+ awards:'<path d="M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v2a3 3 0 0 0 3 3m10-5h3v2a3 3 0 0 1-3 3M12 14v4m-4 2h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+ settings:'<circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+ info:'<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5m0-8v.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+ flame:'<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+ star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+ bolt:'<path d="m13 2-8 12h6l-1 8 8-12h-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+ sun:'<circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+ route:'<circle cx="6" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5" fill="none" stroke="currentColor" stroke-width="2"/>'
+};
+var ico=function(n){return '<svg viewBox="0 0 24 24" aria-hidden="true">'+IC[n]+'</svg>'};
+
+/* ---------- ui helpers ---------- */
+var toastT;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show')},3200)}
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function confetti(){
+  if(reduce)return;var c=$('#confetti'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+  var cols=['#c8f43a','#5b86ff','#a58bff','#ffb84d'],ps=[];
+  for(var i=0;i<110;i++)ps.push({x:innerWidth/2,y:innerHeight*.45,vx:(Math.random()-.5)*14,vy:-Math.random()*13-3,s:4+Math.random()*5,c:cols[i%4],r:Math.random()*6});
+  var f=0;(function tick(){x.clearRect(0,0,c.width,c.height);ps.forEach(function(p){p.vy+=.3;p.x+=p.vx;p.y+=p.vy;p.r+=.2;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);x.restore()});
+    if(++f<110)requestAnimationFrame(tick);else x.clearRect(0,0,c.width,c.height)})();
+}
+function greet(){var h=new Date().getHours();return (h<12?'Good morning':h<18?'Good afternoon':'Good evening')+(S.profile.name?', '+esc(S.profile.name):'')}
+function dayLabel(ts){var d=ymd(new Date(ts)),t=today();return d===t?'Today':d===addDays(t,-1)?'Yesterday':new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'})}
+function clock(ts){return new Date(ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}
+
+/* ---------- tracker (real motion sensor only) ---------- */
+var T={status:'idle',err:null,session:null,det:null,fn:null,startTO:0,gotSample:false,lastSample:0,lastStepTs:0,cad:0,stalled:false,hidden:false,permitted:false,wake:null,tickId:0,segStart:0,base:0,summary:null};
+function statusText(){
+  if(T.status==='starting')return 'Waiting for sensor data';
+  if(T.status==='tracking'){
+    if(T.stalled)return 'No sensor data. Keep the screen on';
+    if(T.hidden)return 'In background. Steps may be missed';
+    return T.det&&T.det.confirmed()?'Walking detected':'Listening for steps';
+  }
+  if(T.status==='paused')return 'Paused';
+  return 'Not tracking';
+}
+function dotClass(){
+  if(T.status==='tracking')return (T.stalled||T.hidden)?'starting':'tracking';
+  return T.status==='starting'?'starting':T.status==='paused'?'paused':'';
+}
+function pillHTML(){return '<span class="sdot '+dotClass()+'"></span>'+esc(statusText())+(T.status==='tracking'&&T.session?' · '+fmt(T.session.steps)+' steps':'')}
+function lock(){try{if(navigator.wakeLock&&!T.wake){navigator.wakeLock.request('screen').then(function(w){T.wake=w;w.addEventListener('release',function(){T.wake=null})}).catch(function(){})}}catch(e){}}
+function unlock(){try{if(T.wake){T.wake.release();T.wake=null}}catch(e){}}
+function syncElapsed(){if(T.session&&T.segStart)T.session.elapsedMs=T.base+(Date.now()-T.segStart)}
+function flush(){if(T.session){syncElapsed();T.session.end=Date.now()}save()}
+var saveT=0;function saveSoon(){if(saveT)return;saveT=setTimeout(function(){saveT=0;flush()},2500)}
+function detach(){if(T.fn){window.removeEventListener('devicemotion',T.fn);T.fn=null}clearTimeout(T.startTO)}
+function startTick(){clearInterval(T.tickId);T.tickId=setInterval(function(){T.stalled=Date.now()-T.lastSample>4000;syncElapsed();live()},1000)}
+function stopTick(){clearInterval(T.tickId);T.tickId=0}
+function fail(kind,msg){
+  detach();T.err={kind:kind,msg:msg};T.status=T.session?'paused':'idle';render();
+}
+function attach(){
+  T.det=createDetector();T.lastStepTs=0;T.cad=0;T.gotSample=false;T.status='starting';
+  T.fn=onMotion;window.addEventListener('devicemotion',T.fn);
+  T.startTO=setTimeout(function(){
+    if(!T.gotSample)fail('nodata','No motion data arrived, so nothing is being counted. This browser, this device or your privacy settings are not providing the sensor.');
+  },3500);
+  render();
+}
+function startTracking(){
+  if(T.status==='starting'||T.status==='tracking')return;
+  T.err=null;T.summary=null;
+  if(!('DeviceMotionEvent' in window)){fail('unsupported','This browser does not support motion sensors, so steps cannot be detected here.');return}
+  if(window.isSecureContext===false){fail('insecure','Motion sensors only work on secure (https) pages. Open the https address of this site.');return}
+  if(typeof DeviceMotionEvent.requestPermission==='function'&&!T.permitted){
+    var pr;try{pr=DeviceMotionEvent.requestPermission()}catch(e){fail('denied','Motion permission could not be requested.');return}
+    T.status='starting';render();
+    pr.then(function(r){if(r==='granted'){T.permitted=true;attach()}else fail('denied','Motion access was denied.')}).catch(function(){fail('denied','Motion access was denied or could not be requested.')});
+  }else attach();
+}
+function onMotion(e){
+  var a=e.accelerationIncludingGravity;
+  if(!a||a.x==null||a.y==null||a.z==null)return;
+  var now=Date.now();T.lastSample=now;T.gotSample=true;
+  if(T.status==='starting'){
+    clearTimeout(T.startTO);
+    if(!T.session){T.session={id:'s'+now.toString(36),start:now,end:now,status:'active',steps:0,activeMs:0,elapsedMs:0,b:{}};S.sessions.push(T.session);T.base=0}
+    else{T.session.status='active';T.base=T.session.elapsedMs||0}
+    T.segStart=now;T.status='tracking';T.stalled=false;lock();startTick();render();
+  }
+  if(T.status!=='tracking')return;
+  if(T.stalled){T.stalled=false}
+  var ts=T.det.push(a.x,a.y,a.z,performance.now());
+  if(ts.length){
+    var before=todayTotal();
+    ts.forEach(countStep);
+    T.session.end=now;saveSoon();
+    milestone(before,todayTotal());
+    queueLive();
+  }
+}
+function countStep(ts){
+  var s=T.session,d=new Date(),key=ymd(d)+'|'+d.getHours(),b=s.b[key]||(s.b[key]=[0,0,0]);
+  b[0]++;s.steps++;
+  var dt=T.lastStepTs?ts-T.lastStepTs:0;T.lastStepTs=ts;
+  if(dt>0&&dt<=2000){T.cad=T.cad?.7*T.cad+.3*dt:dt;if(T.cad<=360)b[2]+=dt;else b[1]+=dt;s.activeMs=(s.activeMs||0)+dt}
+}
+function milestone(before,after){
+  var g=S.goals.steps;
+  if(before<g&&after>=g){toast('Goal reached. Nice work.');if(S.prefs.celebrate)confetti();return}
+  var m=[75,50,25].filter(function(x){return before<g*x/100&&after>=g*x/100})[0];
+  if(m&&S.prefs.encourage)toast(m+'% of your daily goal done');
+}
+function pauseTracking(){
+  if(T.status!=='tracking'&&T.status!=='starting')return;
+  detach();stopTick();unlock();
+  if(T.session){syncElapsed();T.session.status='paused';T.base=T.session.elapsedMs;T.segStart=0}
+  T.status=T.session?'paused':'idle';T.stalled=false;T.lastStepTs=0;if(T.det)T.det.reset();flush();render();
+}
+function resumeTracking(){if(T.status==='paused'){T.err=null;attach()}}
+function stopTracking(){
+  detach();stopTick();unlock();
+  var s=T.session;
+  if(s){syncElapsed();s.status='done';s.end=Date.now();
+    if(s.steps===0){S.sessions=S.sessions.filter(function(x){return x!==s});T.summary={empty:true}}else T.summary={id:s.id}}
+  T.session=null;T.status='idle';T.segStart=0;T.stalled=false;T.lastStepTs=0;flush();render();
+}
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){if(T.status==='tracking'){T.hidden=true;flush()}}
+  else{T.hidden=false;if(T.status==='tracking')lock();live()}
+});
+window.addEventListener('pagehide',function(){flush()});
+
+/* ---------- charts ---------- */
+var chartData=[];
+function niceMax(v){if(v<=0)return 10;var p=Math.pow(10,Math.floor(Math.log10(v))),n=v/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
+function barChart(buckets,opt){
+  var W=640,H=240,l=46,r=8,t=14,b=28,iw=W-l-r,ih=H-t-b;
+  var goal=opt.goal||0,mx=niceMax(Math.max(goal*1.05,Math.max.apply(null,buckets.map(function(x){return x.total}).concat([0])))),bw=iw/buckets.length;
+  chartData=buckets;chartData.unit=opt.unit;chartData.dec=opt.dec||0;
+  var s='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(opt.label)+'">';
+  for(var i=0;i<=4;i++){var y=t+ih-ih*i/4,v=mx*i/4;s+='<line class="gridl" x1="'+l+'" x2="'+(W-r)+'" y1="'+y+'" y2="'+y+'"/><text x="'+(l-8)+'" y="'+(y+4)+'" text-anchor="end">'+fmt(v,mx<20?1:0)+'</text>'}
+  buckets.forEach(function(k,i){
+    var x=l+i*bw+bw*.18,w=bw*.64,y0=t+ih;
+    (opt.order||SRC).forEach(function(sr){var v=k.segs[sr]||0;if(!v)return;var h=Math.max(1.5,v/mx*ih);y0-=h;s+='<rect class="bar c-'+sr+'" x="'+x+'" y="'+y0+'" width="'+w+'" height="'+h+'" rx="'+Math.min(4,w/3)+'" style="animation-delay:'+Math.min(i*18,300)+'ms"/>'});
+    if(k.label)s+='<text x="'+(l+i*bw+bw/2)+'" y="'+(H-8)+'" text-anchor="middle">'+esc(k.label)+'</text>';
+  });
+  if(goal){var gy=t+ih-goal/mx*ih;s+='<line class="goal" x1="'+l+'" x2="'+(W-r)+'" y1="'+gy+'" y2="'+gy+'"/>'}
+  buckets.forEach(function(k,i){s+='<rect class="hit" data-bi="'+i+'" x="'+(l+i*bw)+'" y="'+t+'" width="'+bw+'" height="'+ih+'"><title>'+esc(k.title)+'</title></rect>'});
+  return s+'</svg><div class="readout" id="readout" aria-live="polite">'+readoutText(buckets.length-1)+'</div>';
+}
+function readoutText(i){
+  var k=chartData[i];if(!k)return'';
+  return '<b>'+esc(k.title)+'</b> &nbsp; <span class="num">'+fmt(k.total,chartData.dec)+' '+chartData.unit+'</span>'+(k.total?'':'<span class="sub"> No activity</span>');
+}
+var PER={metric:'steps',period:'day'};
+function series(period,metric){
+  var t=today(),recs=allRecs(),bks=[],idx={},keyOf,mult=1;
+  function add(key,label,title){idx[key]=bks.length;bks.push({label:label,title:title,segs:{},total:0})}
+  var short=function(s){return parse(s).toLocaleDateString(undefined,{month:'short',day:'numeric'})};
+  if(period==='hour'){for(var h=0;h<24;h++)add(h,h%3===0?String(h):'',pad(h)+':00 today');recs=recs.filter(function(r){return r.date===t});keyOf=function(r){return r.hour}}
+  else if(period==='day'){for(var i=13;i>=0;i--){var d=addDays(t,-i);add(d,parse(d).toLocaleDateString(undefined,{weekday:'narrow'}),parse(d).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}))}keyOf=function(r){return r.date}}
+  else if(period==='week'){for(var j=7;j>=0;j--){var m=addDays(mondayOf(t),-7*j);add(m,short(m),'Week of '+short(m));}mult=7;keyOf=function(r){return mondayOf(r.date)}}
+  else{var n=parse(t);for(var q=5;q>=0;q--){var dd=new Date(n.getFullYear(),n.getMonth()-q,1),k=dd.getFullYear()+'-'+pad(dd.getMonth()+1);add(k,dd.toLocaleDateString(undefined,{month:'short'}),dd.toLocaleDateString(undefined,{month:'long',year:'numeric'}))}mult=30;keyOf=function(r){return r.date.slice(0,7)}}
+  recs.forEach(function(r){var i=idx[keyOf(r)];if(i===undefined)return;var v=enrich(r)[metric];bks[i].segs[r.source]=(bks[i].segs[r.source]||0)+v;bks[i].total+=v});
+  var per={steps:1,km:strideCm()/100000,kcal:0}[metric];
+  return {buckets:bks,goal:period==='hour'?0:S.goals.steps*mult*per};
+}
+function goalWeeks(days){
+  var t=today(),bks=[];
+  for(var j=11;j>=0;j--){var m=addDays(mondayOf(t),-7*j),s=sumRange(days,m,addDays(m,6));
+    bks.push({label:j%2===0?parse(m).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'',title:'Week of '+parse(m).toLocaleDateString(undefined,{month:'short',day:'numeric'})+': goal met on '+s.met+' of 7 days',segs:{goal:s.met},total:s.met})}
+  return bks;
+}
+
+/* ---------- views ---------- */
+var view='today',calMonth=today().slice(0,7),calSel=today(),confirmDel=false,renderedDay=today(),lastOffset=null,RING_C=2*Math.PI*96;
+var TITLES={today:['Today','Your daily movement'],trends:['Trends','Hourly, daily, weekly and monthly activity'],history:['History','Every day at a glance'],awards:['Records & badges','What you have earned so far'],settings:['Profile & settings','Goals, body measurements and your data']};
+var NAVL={today:'Today',trends:'Trends',history:'History',awards:'Awards',settings:'Settings'};
+
+function nav(){
+  var h=Object.keys(TITLES).map(function(k){return '<button type="button" data-nav="'+k+'"'+(view===k?' aria-current="page"':'')+'>'+ico(k)+'<span>'+NAVL[k]+'</span></button>'}).join('');
+  $('#nav').innerHTML=h;$('#tabbar').innerHTML=h;
+}
+function bannerHTML(){
+  return storageOk?'':'<div class="banner" role="alert">'+ico('info').replace('<svg','<svg width="20" height="20"')+'<div><b>Browser storage is unavailable.</b> Steps are counted but will be lost when you close this page. Allow site data for this page to keep them.</div></div>';
+}
+function onboardHTML(){
+  if(S.onboard.done)return '';
+  var st=S.onboard.step,dots='<div class="steps-dots" aria-hidden="true">'+[0,1,2].map(function(i){return '<i class="'+(i<=st?'on':'')+'"></i>'}).join('')+'</div>',body='';
+  if(st===0)body='<h2>Welcome to StepSync</h2><p class="sub" style="max-width:62ch">StepSync counts steps from your phone’s motion sensor while you walk with this page open. Steps cannot be typed in, so every number on the dashboard was detected from real movement.</p><div class="row" style="margin-top:14px"><button class="btn primary" data-act="onb-next" type="button">Set up my profile</button><button class="btn" data-act="onb-skip" type="button">Skip for now</button></div>';
+  if(st===1)body='<h2>Tell us about you</h2><p class="sub">Height sets your stride length for distance. Weight is used for the calorie estimate.</p><form class="grid g3" id="onbForm" style="margin-top:12px" onsubmit="return false"><label>Name<input type="text" id="o-name" value="'+esc(S.profile.name)+'" maxlength="30" autocomplete="given-name"></label><label>Height (cm)<input type="number" id="o-h" value="'+S.profile.height+'" min="100" max="230"></label><label>Weight (kg)<input type="number" id="o-w" value="'+S.profile.weight+'" min="30" max="250"></label><label>Daily step goal<input type="number" id="o-g" value="'+S.goals.steps+'" min="1000" max="50000" step="500"></label></form><div class="err" id="onbErr"></div><div class="row"><button class="btn primary" data-act="onb-save" type="button">Continue</button></div>';
+  if(st===2)body='<h2>Before you walk</h2><ul class="helplist"><li>Tap <b>Start walking</b>. Your phone may ask for motion access. Allow it.</li><li>Keep this page open and the screen on. Browsers pause motion sensors when the screen locks or the tab is in the background, and steps taken then are not counted.</li><li>Carry the phone in a pocket, bag or hand while you walk.</li></ul><div class="row" style="margin-top:14px"><button class="btn primary" data-act="onb-done" type="button">Got it</button></div>';
+  return '<section class="card onb" style="margin-bottom:16px" aria-label="Getting started">'+dots+body+'</section>';
+}
+function notesHTML(c){
+  var g=S.goals.steps,pct=c.td.steps/g*100,n=[];
+  if(interruptedNote)n.push(['info','A walking session was cut off when the page closed. The steps counted before that are kept.']);
+  if(S.prefs.encourage){
+    if(pct>=100)n.push(['star','Goal reached. '+fmt(c.td.steps)+' steps today, '+fmt(c.td.steps-g)+' past your target.']);
+    else if(pct>=75)n.push(['bolt','Nearly there: '+fmt(g-c.td.steps)+' steps to go.']);
+    else if(pct>=50)n.push(['bolt','Halfway done. A short evening walk covers the rest.']);
+    else if(pct>=25)n.push(['sun','A quarter of the way. Keep it moving.']);
+    else if(c.td.steps===0)n.push(['sun','No steps detected today yet. Tap Start walking when you head out.']);
+    if(c.st.cur>0&&pct<100&&new Date().getHours()>=17)n.push(['flame','Your '+c.st.cur+'-day streak ends tonight unless you reach '+fmt(g)+' steps.']);
+    else if(c.st.cur>=3)n.push(['flame',c.st.cur+' days in a row at or above your goal.']);
+    if(c.wk.met>=S.goals.activeDays)n.push(['star','You have met your goal on '+c.wk.met+' days this week, hitting your weekly target of '+S.goals.activeDays+'.']);
+  }
+  if(!n.length)n.push(['info','No notifications right now.']);
+  return n.map(function(x){return '<div class="note">'+ico(x[0])+'<div>'+esc(x[1])+'</div></div>'}).join('');
+}
+function ringTarget(pct){return RING_C*(1-Math.min(pct,100)/100)}
+function ringHTML(pct){
+  var R=96,C=RING_C,ticks='';
+  [25,50,75].forEach(function(m){var a=m/100*2*Math.PI-Math.PI/2;ticks+='<line x1="'+(120+(R-12)*Math.cos(a))+'" y1="'+(120+(R-12)*Math.sin(a))+'" x2="'+(120+(R+12)*Math.cos(a))+'" y2="'+(120+(R+12)*Math.sin(a))+'" stroke="var(--bg)" stroke-width="3"/>'});
+  return '<svg viewBox="0 0 240 240" role="img" aria-label="'+fmt(pct)+' percent of daily goal"><circle class="track" cx="120" cy="120" r="'+R+'" fill="none" stroke-width="20"/><circle class="arc" id="arc" cx="120" cy="120" r="'+R+'" fill="none" stroke-width="20" stroke-linecap="round" transform="rotate(-90 120 120)" stroke-dasharray="'+C+'" stroke-dashoffset="'+(lastOffset==null?C:lastOffset)+'" data-to="'+ringTarget(pct)+'"/>'+ticks+'</svg>';
+}
+function centerInner(c){var pct=c.td.steps/S.goals.steps*100;return '<span class="sub">Steps today</span><span class="big num" id="bigsteps">'+fmt(c.td.steps)+'</span><span class="sub num">of '+fmt(S.goals.steps)+' · <b style="color:var(--accent-ink)">'+fmt(pct)+'%</b></span>'}
+function statsInner(c){
+  var td=c.td;
+  return '<div class="stats"><div class="stat"><span class="v num">'+fmt(td.km,2)+'<small>km</small></span><span class="l">Distance (est.)</span></div>'+
+  '<div class="stat"><span class="v num">'+fmt(td.kcal)+'<small>kcal</small></span><span class="l">Calories (est.)</span></div>'+
+  '<div class="stat"><span class="v num">'+fmt(td.walk)+'<small>min</small></span><span class="l">Walking</span></div>'+
+  '<div class="stat"><span class="v num">'+fmt(td.run)+'<small>min</small></span><span class="l">Running (est.)</span></div>'+
+  '<div class="stat"><span class="v num">'+fmt(c.avg)+'</span><span class="l">Daily average, 30 days</span></div>'+
+  '<div class="stat"><span class="v num">'+c.st.cur+'<small>days</small></span><span class="l">Goal streak</span></div></div>'+
+  '<p class="sub" style="margin-top:10px">Distance uses a '+fmt(strideCm(),0)+' cm stride. Calories are a rough estimate from your weight and distance, not a medical measurement. Running is guessed from step cadence.</p>';
+}
+function goalsInner(c){
+  var g=S.goals,td=c.td,walkP=Math.min(100,td.walk/g.walk*100),runP=g.run?Math.min(100,td.run/g.run*100):0,wkP=Math.min(100,c.wk.steps/(g.steps*7)*100),moP=Math.min(100,c.mo.steps/(g.steps*c.dim)*100);
+  return '<h2>Goals</h2><div style="margin-top:10px"><div class="row between"><span>Walking target</span><span class="num sub">'+fmt(td.walk)+' / '+g.walk+' min</span></div><div class="meter '+(walkP>=100?'ok':'')+'"><i style="width:'+walkP+'%"></i></div></div>'+
+  '<div style="margin-top:14px"><div class="row between"><span>Running target</span><span class="num sub">'+fmt(td.run)+' / '+g.run+' min</span></div><div class="meter run '+(runP>=100?'ok':'')+'"><i style="width:'+runP+'%"></i></div></div>'+
+  '<div style="margin-top:14px"><div class="row between"><span>This week</span><span class="num sub">'+fmt(c.wk.steps)+' steps · '+c.wk.met+'/'+g.activeDays+' goal days</span></div><div class="meter"><i style="width:'+wkP+'%"></i></div></div>'+
+  '<div style="margin-top:14px"><div class="row between"><span>This month</span><span class="num sub">'+fmt(c.mo.steps)+' steps</span></div><div class="meter"><i style="width:'+moP+'%"></i></div></div>';
+}
+function tkReadInner(){
+  var s=T.session,e=s?sessStats(s):{steps:0,km:0,kcal:0,activeMs:0,elapsed:0};
+  return '<div class="stats"><div class="stat"><span class="v num">'+fmt(e.steps)+'</span><span class="l">Steps this walk</span></div>'+
+  '<div class="stat"><span class="v num">'+fmtDur(e.activeMs)+'</span><span class="l">Active walking time</span></div>'+
+  '<div class="stat"><span class="v num">'+fmt(e.km,2)+'<small>km</small></span><span class="l">Distance (est.)</span></div>'+
+  '<div class="stat"><span class="v num">'+fmt(e.kcal)+'<small>kcal</small></span><span class="l">Calories (est.)</span></div></div>'+
+  (s?'<p class="sub" style="margin-top:8px">Walk time on the clock: <span class="num">'+fmtDur(e.elapsed)+'</span></p>':'');
+}
+function helpHTML(){
+  var out='',e=T.err;
+  if(e){
+    out+='<div class="alert" role="alert"><b>'+({denied:'Motion access denied',nodata:'No sensor data',unsupported:'Not supported here',insecure:'Secure page needed'}[e.kind]||'Tracking unavailable')+'.</b> '+esc(e.msg);
+    if(e.kind==='denied')out+='<ul class="helplist"><li><b>iPhone:</b> Settings, Safari, turn on Motion &amp; Orientation Access, then reload this page and tap Start walking again. If you chose Don’t Allow, quit Safari fully and reopen the page.</li><li><b>Android Chrome:</b> tap the lock icon in the address bar, Permissions, set Motion sensors to Allow, then reload.</li></ul>';
+    if(e.kind==='nodata')out+='<ul class="helplist"><li><b>Android Chrome:</b> Settings, Site settings, Motion sensors, Allow. Also check battery saver is off.</li><li><b>iPhone:</b> Settings, Safari, Motion &amp; Orientation Access on.</li><li>Laptops and desktops usually have no step sensor.</li></ul>';
+    out+='</div>';
+  }
+  out+='<details class="help"><summary>What to expect</summary><ul class="helplist"><li>Steps are counted only while tracking is on, the screen is on and this page is open in the foreground. Locking the phone or switching apps usually stops the sensor, and the browser may stop this page entirely.</li><li>This page asks your phone to stay awake while tracking, which uses extra battery.</li><li>This is a browser estimate and will not match a fitness band or the phone’s built-in step counter exactly. It is not 24/7 tracking.</li><li>Your data stays in this browser. It does not sync to other devices or browsers.</li></ul></details>';
+  return out;
+}
+function trackerHTML(){
+  var st=T.status,b='';
+  if(st==='idle')b='<button class="btn primary big" data-act="trk-start" type="button">Start walking</button>';
+  else if(st==='starting')b='<button class="btn big" type="button" disabled>Waiting for sensor</button><button class="btn" data-act="trk-cancel" type="button">Cancel</button>';
+  else if(st==='tracking')b='<button class="btn big" data-act="trk-pause" type="button">Pause tracking</button><button class="btn danger" data-act="trk-stop" type="button">Stop tracking</button>';
+  else b='<button class="btn primary big" data-act="trk-resume" type="button">Resume tracking</button><button class="btn danger" data-act="trk-stop" type="button">Stop tracking</button>';
+  return '<section class="card" id="tracker"><div class="row between"><h2>Walking tracker</h2><span class="pill" id="tkStatus" role="status">'+pillHTML()+'</span></div><div id="tkRead" style="margin-top:10px">'+tkReadInner()+'</div><div class="row" style="margin-top:14px">'+b+'</div>'+helpHTML()+'</section>';
+}
+function summaryHTML(){
+  if(!T.summary)return '';
+  if(T.summary.empty)return '<section class="card" style="margin-top:16px"><div class="row between"><h2>Walk ended</h2><button class="btn small" data-act="sum-close" type="button">Dismiss</button></div><p class="sub">No steps were detected in that session, so nothing was saved.</p></section>';
+  var s=S.sessions.filter(function(x){return x.id===T.summary.id})[0];if(!s)return '';
+  var e=sessStats(s),cad=e.activeMs>0?e.steps/(e.activeMs/60000):0;
+  return '<section class="card" style="margin-top:16px;border-color:var(--accent-ink)"><div class="row between"><h2>Walk summary</h2><button class="btn small" data-act="sum-close" type="button">Dismiss</button></div><div class="stats" style="margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr))"><div class="stat"><span class="v num">'+fmt(e.steps)+'</span><span class="l">Steps</span></div><div class="stat"><span class="v num">'+fmtDur(e.activeMs)+'</span><span class="l">Active time</span></div><div class="stat"><span class="v num">'+fmtDur(e.elapsed)+'</span><span class="l">Time on the clock</span></div><div class="stat"><span class="v num">'+fmt(e.km,2)+'<small>km</small></span><span class="l">Distance (est.)</span></div><div class="stat"><span class="v num">'+fmt(e.kcal)+'<small>kcal</small></span><span class="l">Calories (est.)</span></div><div class="stat"><span class="v num">'+fmt(cad)+'<small>/min</small></span><span class="l">Cadence</span></div></div></section>';
+}
+function sessionsHTML(){
+  var list=S.sessions.slice().sort(function(a,b){return b.start-a.start}).slice(0,6);
+  if(!list.length)return '<div class="empty"><b>No walks recorded yet</b><span>Tap Start walking and keep this page open. Your sessions will appear here.</span></div>';
+  return '<ul class="tl">'+list.map(function(s){var e=sessStats(s);return '<li><time>'+dayLabel(s.start)+'<br>'+clock(s.start)+'</time><span class="sdot" style="background:var(--accent)"></span><span><b class="num">'+fmt(e.steps)+'</b> steps · '+fmtDur(e.activeMs)+' active · '+fmt(e.km,2)+' km</span>'+(s.status==='interrupted'?'<span class="pill">Cut off</span>':'<span class="pill">Saved</span>')+'</li>'}).join('')+'</ul>';
+}
+function lastUpdateText(){
+  if(T.status==='tracking'&&T.lastSample)return 'Sensor last reported '+clock(T.lastSample);
+  var l=S.sessions.slice().sort(function(a,b){return b.end-a.end})[0];
+  return l?'Last steps counted '+dayLabel(l.end)+' at '+clock(l.end)+' · phone motion sensor':'No steps have been detected yet';
+}
+function viewToday(c){
+  var pct=c.td.steps/S.goals.steps*100;
+  return bannerHTML()+onboardHTML()+
+  '<div class="grid hero"><div class="stack"><section class="card"><div class="dial">'+ringHTML(pct)+'<div class="center" id="liveCenter">'+centerInner(c)+'</div></div><p class="sub" id="lastUp" style="text-align:center;margin-top:6px">'+esc(lastUpdateText())+'</p></section></div>'+
+  '<div class="stack">'+trackerHTML()+'</div></div>'+summaryHTML()+
+  '<div class="grid g2" style="margin-top:16px"><section class="card" id="liveStats">'+statsInner(c)+'</section><section class="card" id="liveGoals">'+goalsInner(c)+'</section></div>'+
+  '<div class="grid g2" style="margin-top:16px"><section class="card"><h2>Recent walks</h2><div style="margin-top:6px">'+sessionsHTML()+'</div></section><section class="card"><h2>Notifications</h2>'+notesHTML(c)+'</section></div>';
+}
+var qLive=0;function queueLive(){if(qLive)return;qLive=requestAnimationFrame(function(){qLive=0;live()})}
+function live(){
+  var hp=$('#hdrPill');if(hp)hp.innerHTML=pillHTML();
+  if(view!=='today')return;
+  var c=ctx(),pct=c.td.steps/S.goals.steps*100,el;
+  if((el=$('#liveCenter')))el.innerHTML=centerInner(c);
+  if((el=$('#arc'))){lastOffset=ringTarget(pct);el.setAttribute('stroke-dashoffset',lastOffset)}
+  if((el=$('#liveStats')))el.innerHTML=statsInner(c);
+  if((el=$('#liveGoals')))el.innerHTML=goalsInner(c);
+  if((el=$('#tkRead')))el.innerHTML=tkReadInner();
+  if((el=$('#tkStatus')))el.innerHTML=pillHTML();
+  if((el=$('#lastUp')))el.textContent=lastUpdateText();
+}
+
+function periodTabs(){
+  var P=[['hour','Hourly'],['day','Daily'],['week','Weekly'],['month','Monthly']],M=[['steps','Steps'],['km','Distance'],['kcal','Calories']];
+  return '<div class="row between"><div class="seg" role="group" aria-label="Period">'+P.map(function(p){return '<button type="button" data-period="'+p[0]+'" aria-pressed="'+(PER.period===p[0])+'">'+p[1]+'</button>'}).join('')+'</div><div class="seg" role="group" aria-label="Measure">'+M.map(function(p){return '<button type="button" data-metric="'+p[0]+'" aria-pressed="'+(PER.metric===p[0])+'">'+p[1]+'</button>'}).join('')+'</div></div>';
+}
+function viewTrends(c){
+  var s=series(PER.period,PER.metric),unit={steps:'steps',km:'km (est.)',kcal:'kcal (est.)'}[PER.metric],has=s.buckets.some(function(b){return b.total>0});
+  var titles={hour:'Hourly activity today',day:'Last 14 days',week:'Last 8 weeks',month:'Last 6 months'};
+  var chart=has?barChart(s.buckets,{goal:PER.metric==='kcal'?0:s.goal,unit:unit,dec:PER.metric==='km'?2:0,label:titles[PER.period]+', '+unit}):'<div class="empty"><b>No steps in this period</b><span>Start a walk on the Today tab. Charts fill in from steps your phone detects.</span></div>';
+  var note=PER.period==='month'?'Dashed line is the goal across a 30-day month.':PER.period==='week'?'Dashed line is the weekly goal.':PER.period==='day'?'Dashed line is your daily goal.':'';
+  var w=c.wk,lw=c.lastWk,diff=lw.steps?(w.steps-lw.steps)/lw.steps*100:null,gw=goalWeeks(c.days);
+  return '<section class="card"><h2>'+titles[PER.period]+'</h2><p class="sub" style="margin-bottom:12px">'+note+'</p>'+periodTabs()+'<div style="margin-top:14px">'+chart+'</div></section>'+
+  '<div class="grid g2" style="margin-top:16px"><section class="card"><h2>Weekly summary</h2><p class="sub">Monday to today, compared with last week</p><div class="stats" style="margin-top:12px">'+
+   '<div class="stat"><span class="v num">'+fmt(w.steps)+'</span><span class="l">Steps'+(diff===null?'':' · '+(diff>=0?'+':'')+fmt(diff)+'% vs last week')+'</span></div>'+
+   '<div class="stat"><span class="v num">'+fmt(w.km,1)+'<small>km</small></span><span class="l">Distance (est.)</span></div>'+
+   '<div class="stat"><span class="v num">'+fmt(w.kcal)+'<small>kcal</small></span><span class="l">Calories (est.)</span></div>'+
+   '<div class="stat"><span class="v num">'+w.met+'<small>/ '+S.goals.activeDays+'</small></span><span class="l">Goal days (target)</span></div>'+
+   '<div class="stat"><span class="v num">'+fmt(w.walk+w.run)+'<small>min</small></span><span class="l">Active time</span></div>'+
+   '<div class="stat"><span class="v num">'+fmt(w.best)+'</span><span class="l">Best day this week</span></div></div></section>'+
+  '<section class="card"><h2>Goal completion</h2><p class="sub">Days you reached '+fmt(S.goals.steps)+' steps, per week</p><div style="margin-top:12px">'+(c.keys.length?barChart(gw,{order:['goal'],unit:'days',label:'Goal days per week',goal:S.goals.activeDays}):'<div class="empty"><b>No weeks to show</b><span>Goal completion appears after your first detected steps.</span></div>')+'</div><p class="sub" style="margin-top:8px">Dashed line is your weekly target of '+S.goals.activeDays+' days.</p></section></div>';
+}
+function dayLevel(x){if(!x)return 0;var p=x.steps/S.goals.steps;return p>=1?4:p>=.7?3:p>=.4?2:p>0?1:0}
+function viewHistory(c){
+  var y=+calMonth.slice(0,4),m=+calMonth.slice(5)-1,first=new Date(y,m,1),dim=new Date(y,m+1,0).getDate(),lead=(first.getDay()+6)%7,cells='';
+  ['M','T','W','T','F','S','S'].forEach(function(d){cells+='<div class="dow">'+d+'</div>'});
+  for(var i=0;i<lead;i++)cells+='<button class="blank" tabindex="-1" aria-hidden="true"></button>';
+  for(var d=1;d<=dim;d++){var k=y+'-'+pad(m+1)+'-'+pad(d),x=c.days[k],cl='l'+dayLevel(x)+(k===calSel?' sel':'')+(k===c.t?' today':''),fut=k>c.t;
+    cells+='<button type="button" class="'+cl+'" data-day="'+k+'"'+(fut?' disabled style="opacity:.35;cursor:default"':'')+' aria-label="'+parse(k).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+', '+(x?fmt(x.steps)+' steps':'no data')+'">'+d+'<small>'+(x?(x.steps>=1000?(x.steps/1000).toFixed(1)+'k':x.steps):'')+'</small></button>'}
+  var sel=c.days[calSel],detail='<h2>'+parse(calSel).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+'</h2>';
+  if(sel){
+    var ses=S.sessions.filter(function(s){return Object.keys(s.b).some(function(k){return k.slice(0,10)===calSel})}).sort(function(a,b){return a.start-b.start});
+    detail+='<div class="stats" style="margin:12px 0"><div class="stat"><span class="v num">'+fmt(sel.steps)+'</span><span class="l">Steps · '+fmt(sel.steps/S.goals.steps*100)+'% of goal</span></div><div class="stat"><span class="v num">'+fmt(sel.km,2)+'<small>km</small></span><span class="l">Distance (est.)</span></div><div class="stat"><span class="v num">'+fmt(sel.kcal)+'<small>kcal</small></span><span class="l">Calories (est.)</span></div><div class="stat"><span class="v num">'+fmt(sel.walk+sel.run)+'<small>min</small></span><span class="l">Active time</span></div></div><ul class="tl">'+ses.map(function(s){var n=0;Object.keys(s.b).forEach(function(k){if(k.slice(0,10)===calSel)n+=s.b[k][0]});return '<li><time>'+clock(s.start)+'</time><span class="sdot" style="background:var(--accent)"></span><span><b class="num">'+fmt(n)+'</b> steps this day</span><button class="btn small danger" type="button" data-del="'+esc(s.id)+'">Delete walk</button></li>'}).join('')+'</ul>';
+  }else detail+='<div class="empty" style="margin-top:12px"><b>No steps this day</b><span>'+(calSel>c.t?'This day has not happened yet.':'No walking was detected on this date.')+'</span></div>';
+  var next=new Date(y,m+1,1)<=new Date();
+  return '<div class="grid g2" style="grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)"><section class="card"><div class="row between" style="margin-bottom:12px"><h2>'+first.toLocaleDateString(undefined,{month:'long',year:'numeric'})+'</h2><div class="row" style="gap:6px"><button class="btn small" type="button" data-month="-1" aria-label="Previous month">Prev</button><button class="btn small" type="button" data-month="1"'+(next?'':' disabled')+' aria-label="Next month">Next</button></div></div><div class="cal">'+cells+'</div><div class="legend" style="margin-top:12px"><span>Darker means closer to your goal</span></div></section><section class="card">'+detail+'</section></div>';
+}
+function badgeDefs(c){
+  var g=S.goals.steps,max=c.bestDay?c.bestDay.steps:0,runMax=c.runDay?c.runDay.run:0;
+  return [
+   {n:'First steps',d:'Detect your first steps',i:'sun',v:c.total.steps>0?1:0,t:1},
+   {n:'5K day',d:'5,000 steps in one day',i:'bolt',v:max,t:5000},
+   {n:'10K day',d:'10,000 steps in one day',i:'bolt',v:max,t:10000},
+   {n:'Goal getter',d:'Reach your daily goal',i:'star',v:max,t:g},
+   {n:'3-day streak',d:'Meet your goal 3 days in a row',i:'flame',v:c.st.best,t:3},
+   {n:'Week warrior',d:'Meet your goal 7 days in a row',i:'flame',v:c.st.best,t:7},
+   {n:'Month of motion',d:'Meet your goal 30 days in a row',i:'flame',v:c.st.best,t:30},
+   {n:'Runner',d:'Run 30 minutes in one day (estimated)',i:'bolt',v:runMax,t:30},
+   {n:'Big week',d:'70,000 steps in one week',i:'star',v:c.bestWeek,t:70000},
+   {n:'Early bird',d:'Walk before 7:00 on 3 occasions',i:'sun',v:c.early,t:3},
+   {n:'100 km club',d:'Walk 100 km in total (estimated)',i:'route',v:c.total.km,t:100}];
+}
+function viewAwards(c){
+  var R=function(l,v,s){return '<div class="stat"><span class="l">'+l+'</span><span class="v num">'+v+'</span><span class="l">'+s+'</span></div>'};
+  var dl=function(x){return x?parse(x.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'No data yet'};
+  var recs='<div class="recs">'+R('Most steps in a day',c.bestDay?fmt(c.bestDay.steps):'0',dl(c.bestDay))+R('Best week',fmt(c.bestWeek),'steps, Monday to Sunday')+R('Longest streak',c.st.best+' days','at or above your goal')+R('Farthest day',c.farDay?fmt(c.farDay.km,1)+' km':'0 km',c.farDay?dl(c.farDay)+' (est.)':'No data yet')+R('Longest run',c.runDay?fmt(c.runDay.run)+' min':'0 min',c.runDay&&c.runDay.run>=1?dl(c.runDay)+' (est.)':'No running detected')+R('Current streak',c.st.cur+' days','ends if you miss today')+'</div>';
+  var B=badgeDefs(c),earned=B.filter(function(b){return b.v>=b.t}).length;
+  return '<section class="card"><h2>Personal records</h2><p class="sub" style="margin-bottom:12px">Best values from steps your phone has detected.</p>'+recs+'</section>'+
+  '<section class="card" style="margin-top:16px"><h2>Achievement badges</h2><p class="sub" style="margin-bottom:12px">'+earned+' of '+B.length+' earned</p><div class="badges">'+B.map(function(b){var on=b.v>=b.t,p=Math.min(100,b.v/b.t*100);return '<div class="badge'+(on?' on':'')+'"><div class="ico">'+ico(b.i)+'</div><div style="min-width:0;flex:1"><b>'+b.n+'</b><span class="sub">'+b.d+'</span><div class="meter'+(on?' ok':'')+'"><i style="width:'+p+'%"></i></div></div></div>'}).join('')+'</div></section>';
+}
+function viewSettings(){
+  var p=S.profile,g=S.goals,pr=S.prefs,custom=!!p.stride;
+  var F=function(id,l,v,ex){return '<label>'+l+'<input type="number" id="'+id+'" value="'+v+'" '+ex+'></label>'};
+  return '<div class="grid g2"><section class="card"><h2>Profile</h2><p class="sub">Used for distance and calorie estimates.</p><form class="grid g2" style="margin-top:12px" onsubmit="return false">'+
+   '<label>Name<input type="text" id="s-name" value="'+esc(p.name)+'" maxlength="30"></label>'+F('s-h','Height (cm)',p.height,'min="100" max="230"')+F('s-w','Weight (kg)',p.weight,'min="30" max="250"')+
+   '<label>Stride length (cm)<input type="number" id="s-stride" value="'+(custom?p.stride:Math.round(strideCm()))+'" min="30" max="150" '+(custom?'':'disabled')+'></label>'+
+   '<label style="flex-direction:row;align-items:center;gap:8px;grid-column:1/-1"><input type="checkbox" id="s-custom" '+(custom?'checked':'')+' style="width:18px;height:18px"> Set my own stride length (otherwise 0.415 × height)</label></form><div class="err" id="setErr"></div></section>'+
+  '<section class="card"><h2>Goals</h2><p class="sub">Defaults are common starting points. Change them any time.</p><form class="grid g2" style="margin-top:12px" onsubmit="return false">'+F('s-goal','Daily steps',g.steps,'min="1000" max="50000" step="500"')+F('s-days','Goal days per week',g.activeDays,'min="1" max="7"')+F('s-walk','Walking minutes per day',g.walk,'min="0" max="600"')+F('s-run','Running minutes per day',g.run,'min="0" max="600"')+'</form></section></div>'+
+  '<div class="grid g2" style="margin-top:16px"><section class="card"><h2>Preferences</h2><div class="stack" style="margin-top:12px"><div><span class="sub">Theme</span><div class="seg" style="display:flex;margin-top:6px">'+['system','dark','light'].map(function(t){return '<button type="button" data-theme-set="'+t+'" aria-pressed="'+(pr.theme===t)+'">'+t[0].toUpperCase()+t.slice(1)+'</button>'}).join('')+'</div></div>'+
+   '<label class="row"><input type="checkbox" id="s-enc" '+(pr.encourage?'checked':'')+' style="width:18px;height:18px"> Show encouraging messages</label><label class="row"><input type="checkbox" id="s-cel" '+(pr.celebrate?'checked':'')+' style="width:18px;height:18px"> Celebrate when I reach my goal</label></div></section>'+
+  '<section class="card"><h2>How tracking works</h2><div class="scroll-x"><table class="tbl" style="margin-top:8px"><tr><th>Topic</th><th>Details</th></tr>'+
+   '<tr><td>Step source</td><td>Your phone’s motion sensor, read through the browser. Steps cannot be entered by hand.</td></tr>'+
+   '<tr><td>Detection</td><td>Acceleration peaks above an adaptive threshold, at least 280 ms apart, counted once they form a steady walking rhythm.</td></tr>'+
+   '<tr><td>Distance</td><td>Steps × stride length. Default stride is 0.415 × your height.</td></tr>'+
+   '<tr><td>Calories</td><td>Weight × distance × 0.6 for walking, up to 1.0 for running. A rough estimate, not a medical measure.</td></tr>'+
+   '<tr><td>Limits</td><td>Counts only while the page is open and the screen is on. No background or 24/7 tracking, and no sync between devices.</td></tr></table></div></section></div>'+
+  '<section class="card" style="margin-top:16px"><h2>Your data</h2><p class="sub">Everything lives in this browser only. It does not sync to other devices and clearing site data erases it. There are no accounts.</p><div class="row" style="margin-top:12px"><button class="btn" data-act="export-csv" type="button">Export walks (CSV)</button><button class="btn" data-act="export-json" type="button">Export all (JSON)</button></div>'+
+   '<div class="row" style="margin-top:14px">'+(confirmDel?'<span class="err" style="min-height:0">Delete all '+S.sessions.length+' walks and reset settings?</span><button class="btn danger" data-act="del-confirm" type="button">Yes, delete everything</button><button class="btn" data-act="del-cancel" type="button">Cancel</button>':'<button class="btn danger" data-act="del-ask" type="button">Delete all my data</button>')+'</div><div class="sub" id="exportMsg" style="margin-top:8px" role="status"></div></section>';
+}
+
+/* ---------- render ---------- */
+function applyTheme(){var t=S.prefs.theme,r=document.documentElement;if(t==='system')r.removeAttribute('data-theme');else r.setAttribute('data-theme',t)}
+function render(){
+  applyTheme();nav();renderedDay=today();
+  var c=ctx(),t=TITLES[view];
+  var head='<header class="top"><div><h1>'+(view==='today'?greet():t[0])+'</h1><p>'+(view==='today'?parse(c.t).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}):t[1])+'</p></div><span class="pill" id="hdrPill" role="status">'+pillHTML()+'</span></header>';
+  var body={today:viewToday,trends:viewTrends,history:viewHistory,awards:viewAwards,settings:viewSettings}[view](c);
+  $('#view').innerHTML=head+(view==='today'?'':bannerHTML())+body;
+  var arc=$('#arc');if(arc){var to=+arc.dataset.to;requestAnimationFrame(function(){requestAnimationFrame(function(){arc.setAttribute('stroke-dashoffset',to);lastOffset=to})})}
+}
+function go(v){view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
+
+/* ---------- data export / reset ---------- */
+function csvEscape(v){v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function blobSave(name,data,type){var b=new Blob([data],{type:type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000)}
+function exportData(kind){
+  var msg=$('#exportMsg');
+  if(!S.sessions.length){msg.textContent='There are no saved walks to export yet.';return}
+  var data,name,type;
+  if(kind==='csv'){data='session_start,session_end,steps,active_min,session_min,status\n'+S.sessions.map(function(s){return [new Date(s.start).toISOString(),new Date(s.end).toISOString(),s.steps,((s.activeMs||0)/60000).toFixed(1),((s.elapsedMs||0)/60000).toFixed(1),s.status].map(csvEscape).join(',')}).join('\n');name='stepsync-walks.csv';type='text/csv'}
+  else{data=JSON.stringify({exportedAt:new Date().toISOString(),profile:S.profile,goals:S.goals,preferences:S.prefs,sessions:S.sessions},null,2);name='stepsync-export.json';type='application/json'}
+  if(window.claude&&claude.use){
+    claude.use('downloads').then(function(dl){
+      if(!dl){msg.textContent='Saving files is not available in this view.';return}
+      return dl.save({filename:name,data:data}).then(function(){msg.textContent='Saved '+name+'.'}).catch(function(e){msg.textContent=e&&e.code==='declined'?'Export cancelled.':'Could not save the file. Try again.'});
+    }).catch(function(){msg.textContent='Saving files is not available in this view.'});
+  }else{try{blobSave(name,data,type);msg.textContent='Download started: '+name}catch(e){msg.textContent='Your browser blocked the download.'}}
+}
+function setNum(id,key,obj,min,max,int){
+  var el=$('#'+id),v=+el.value,e=$('#setErr');
+  if(el.value===''||isNaN(v)||v<min||v>max){if(e)e.textContent='Enter a value between '+min+' and '+max+'.';return false}
+  obj[key]=int?Math.round(v):v;save();if(e)e.textContent='';return true;
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-nav],[data-act],[data-period],[data-metric],[data-day],[data-month],[data-del],[data-theme-set],[data-bi]');if(!t)return;
+  var D=t.dataset;
+  if(D.nav)return go(D.nav);
+  if(D.period){PER.period=D.period;return render()}
+  if(D.metric){PER.metric=D.metric;return render()}
+  if(D.bi!==undefined){var r=$('#readout');if(r)r.innerHTML=readoutText(+D.bi);return}
+  if(D.day){calSel=D.day;return render()}
+  if(D.month){var y=+calMonth.slice(0,4),m=+calMonth.slice(5)-1+ +D.month,d=new Date(y,m,1);calMonth=d.getFullYear()+'-'+pad(d.getMonth()+1);return render()}
+  if(D.del){if(T.session&&T.session.id===D.del){toast('Stop tracking before deleting the walk in progress');return}S.sessions=S.sessions.filter(function(s){return s.id!==D.del});save();toast('Walk deleted');return render()}
+  if(D.themeSet){S.prefs.theme=D.themeSet;save();return render()}
+  switch(D.act){
+   case 'trk-start':return startTracking();
+   case 'trk-pause':return pauseTracking();
+   case 'trk-resume':return resumeTracking();
+   case 'trk-stop':return stopTracking();
+   case 'trk-cancel':detach();T.status=T.session?'paused':'idle';render();return;
+   case 'sum-close':T.summary=null;return render();
+   case 'onb-next':S.onboard.step=1;save();return render();
+   case 'onb-skip':case 'onb-done':S.onboard.done=true;save();return render();
+   case 'onb-save':
+     var h=+$('#o-h').value,w=+$('#o-w').value,g=+$('#o-g').value;
+     if(!(h>=100&&h<=230)||!(w>=30&&w<=250)||!(g>=1000&&g<=50000)){$('#onbErr').textContent='Check your numbers: height 100 to 230 cm, weight 30 to 250 kg, goal 1,000 to 50,000 steps.';return}
+     S.profile.name=$('#o-name').value.trim().slice(0,30);S.profile.height=h;S.profile.weight=w;S.goals.steps=Math.round(g);S.onboard.step=2;save();return render();
+   case 'export-csv':return exportData('csv');
+   case 'export-json':return exportData('json');
+   case 'del-ask':confirmDel=true;return render();
+   case 'del-cancel':confirmDel=false;return render();
+   case 'del-confirm':detach();stopTick();unlock();T.session=null;T.status='idle';T.summary=null;T.err=null;S=DEFAULTS();S.onboard.done=true;save();confirmDel=false;interruptedNote=false;lastOffset=null;toast('All data deleted');return render();
+  }
+});
+document.addEventListener('change',function(e){
+  var id=e.target.id;if(!id)return;
+  var done=false;
+  if(id==='s-name'){S.profile.name=e.target.value.trim().slice(0,30);save();done=true}
+  else if(id==='s-h')done=setNum(id,'height',S.profile,100,230);
+  else if(id==='s-w')done=setNum(id,'weight',S.profile,30,250);
+  else if(id==='s-stride')done=setNum(id,'stride',S.profile,30,150);
+  else if(id==='s-custom'){S.profile.stride=e.target.checked?Math.round(strideCm()):null;save();done=true}
+  else if(id==='s-goal')done=setNum(id,'steps',S.goals,1000,50000,true);
+  else if(id==='s-days')done=setNum(id,'activeDays',S.goals,1,7,true);
+  else if(id==='s-walk')done=setNum(id,'walk',S.goals,0,600,true);
+  else if(id==='s-run')done=setNum(id,'run',S.goals,0,600,true);
+  else if(id==='s-enc'){S.prefs.encourage=e.target.checked;save();done=true}
+  else if(id==='s-cel'){S.prefs.celebrate=e.target.checked;save();done=true}
+  if(done){if(id==='s-custom')render();else toast('Saved')}
+});
+$('#themeBtn').addEventListener('click',function(){var o=['system','dark','light'];S.prefs.theme=o[(o.indexOf(S.prefs.theme)+1)%3];save();render();toast('Theme: '+S.prefs.theme)});
+window.addEventListener('hashchange',function(){var h=location.hash.slice(1);if(TITLES[h]&&h!==view){view=h;render()}});
+/* start a new local day: re-render once the calendar date changes, unless it would disturb a form being edited */
+setInterval(function(){if(today()!==renderedDay&&!(document.activeElement&&document.activeElement.tagName==='INPUT'))render()},30000);
+var h0=location.hash.slice(1);if(TITLES[h0])view=h0;
+render();
+})();
+
+</script>
+</body>
+</html>
